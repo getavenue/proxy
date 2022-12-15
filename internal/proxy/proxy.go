@@ -16,6 +16,7 @@ package proxy
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -28,7 +29,8 @@ import (
 	"github.com/dio/proxy/handler"
 	xdsconfig "github.com/dio/proxy/internal/xds/config"
 	xdsserver "github.com/dio/proxy/internal/xds/server"
-	"github.com/dio/proxy/internal/xds/watcher"
+	"github.com/dio/proxy/internal/xds/watcher/directory"
+	"github.com/dio/proxy/internal/xds/watcher/nats"
 	"github.com/dio/proxy/runner"
 )
 
@@ -42,11 +44,18 @@ func Run(ctx context.Context, c *config.Bootstrap) error {
 		return err
 	}
 
-	if c.XDSResources != "" { // When user asks to watch a directory, activate the embedded xDS server.
+	if c.XDSResources != "" && c.NatsURL != "" {
+		return errors.New("Cannot have both directory and nats watcher")
+	}
+
+	// User asks to watch a directory, activate the embedded xDS server.
+	if c.XDSResources != "" {
 		c.NodeID = filepath.Clean(c.XDSResources)
 		xdsBootstrap := &xdsconfig.Bootstrap{
 			Resources:     c.XDSResources,
 			ListenAddress: fmt.Sprintf(":%d", c.XDSServerPort),
+			NatsURL:       c.NatsURL,
+			NodeID:        c.NodeID,
 		}
 
 		xdsServer := xdsserver.New(xdsBootstrap)
@@ -59,11 +68,41 @@ func Run(ctx context.Context, c *config.Bootstrap) error {
 			})
 		}
 
-		w := watcher.New(xdsBootstrap, xdsServer)
+		w := directory.New(xdsBootstrap, xdsServer)
 		{
 			runCtx, cancel := context.WithCancel(ctx)
 			g.Add(func() error {
 				return w.Run(runCtx)
+			}, func(err error) {
+				cancel()
+			})
+		}
+	}
+
+	// User asks to watch a nats stream
+	if c.XDSResources != "" {
+		xdsBootstrap := &xdsconfig.Bootstrap{
+			Resources:     c.XDSResources,
+			ListenAddress: fmt.Sprintf(":%d", c.XDSServerPort),
+			NatsURL:       c.NatsURL,
+			NodeID:        c.NodeID,
+		}
+
+		xdsServer := xdsserver.New(xdsBootstrap)
+		{
+			runCtx, cancel := context.WithCancel(ctx)
+			g.Add(func() error {
+				return xdsServer.Run(runCtx)
+			}, func(err error) {
+				cancel()
+			})
+		}
+
+		natsWatcher := nats.New(xdsBootstrap, xdsServer)
+		{
+			runCtx, cancel := context.WithCancel(ctx)
+			g.Add(func() error {
+				return natsWatcher.Run(runCtx)
 			}, func(err error) {
 				cancel()
 			})

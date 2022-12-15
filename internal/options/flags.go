@@ -31,6 +31,7 @@ type Flags struct {
 	AdminPort      int    `help:"Specify the admin interface port"`
 	StatsPort      int    `help:"Specify the exposed stats port"`
 	Output         string `help:"Specify the file to write the rendered config. Available values: stdout, stderr, or a valid file path"`
+	NatsURL        string `help:"Specify NATS URL to connect." default:"nats://localhost:4222"`
 	Version        bool   `help:"Show application version."`
 }
 
@@ -64,5 +65,6 @@ func (f *Flags) ToBootstrap() (*config.Bootstrap, error) {
 		AdminPort:        f.AdminPort,
 		Output:           f.Output,
 		UseGoogleGRPC:    f.UseGoogleGRPC,
+		NatsURL:          f.NatsURL,
 	}, nil
 }

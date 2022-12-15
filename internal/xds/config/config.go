@@ -17,4 +17,6 @@ package config
 type Bootstrap struct {
 	ListenAddress string
 	Resources     string
+	NatsURL       string
+	NodeID        string
 }

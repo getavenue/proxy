@@ -36,6 +36,7 @@ import (
 )
 
 // TODO(dio): To add xds-v3-google.yaml for using google_grpc.
+//
 //go:embed templates/xds-v3-envoy.yaml
 var xdsV3Envoy string
 

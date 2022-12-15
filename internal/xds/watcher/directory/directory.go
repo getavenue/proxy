@@ -1,4 +1,4 @@
-package watcher
+package directory
 
 import (
 	"context"
@@ -27,20 +27,20 @@ import (
 //go:embed templates/sample-v3.yaml
 var sampleV3 []byte
 
-func New(c *config.Bootstrap, updater xdsserver.SnaphotUpdater) *Watcher {
-	return &Watcher{
+func New(c *config.Bootstrap, updater xdsserver.SnaphotUpdater) *DirectoryWatcher {
+	return &DirectoryWatcher{
 		c:       c,
 		updater: updater,
 	}
 }
 
-type Watcher struct {
+type DirectoryWatcher struct {
 	c       *config.Bootstrap
 	watcher *fsnotify.Watcher
 	updater xdsserver.SnaphotUpdater
 }
 
-func (w *Watcher) Run(ctx context.Context) error {
+func (w *DirectoryWatcher) Run(ctx context.Context) error {
 	if !isDir(w.c.Resources) {
 		return errors.New("resources must be a directory")
 	}
@@ -76,7 +76,7 @@ func (w *Watcher) Run(ctx context.Context) error {
 	}
 }
 
-func (w *Watcher) update() error {
+func (w *DirectoryWatcher) update() error {
 	nodes := make(map[string][]*bootstrapv3.Bootstrap)
 
 	if err := filepath.Walk(w.c.Resources,

@@ -9,7 +9,7 @@ import (
 
 	"github.com/dio/proxy/internal/xds/config"
 	xdsserver "github.com/dio/proxy/internal/xds/server"
-	"github.com/dio/proxy/internal/xds/watcher"
+	"github.com/dio/proxy/internal/xds/watcher/directory"
 )
 
 // Run runs the main handler.
@@ -27,7 +27,7 @@ func Run(ctx context.Context, c *config.Bootstrap) error {
 		})
 	}
 
-	w := watcher.New(c, s)
+	w := directory.New(c, s)
 	{
 		runCtx, cancel := context.WithCancel(ctx)
 		g.Add(func() error {

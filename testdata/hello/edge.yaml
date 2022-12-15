@@ -1,0 +1,203 @@
+static_resources:
+  listeners:
+    - name: listener_http
+      address:
+        socket_address:
+          address: 0.0.0.0
+          port_value: 8080
+      per_connection_buffer_limit_bytes: 32768 # 32 KiB
+      filter_chains:
+        - name: filter_chain_http
+          filter_chain_match:
+            transport_protocol: raw_buffer
+          filters:
+            - name: envoy.filters.network.http_connection_manager
+              typed_config:
+                "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                stat_prefix: ingress_http
+                use_remote_address: true
+                normalize_path: true
+                merge_slashes: true
+                path_with_escaped_slashes_action: UNESCAPE_AND_REDIRECT
+                common_http_protocol_options:
+                  idle_timeout: 3600s # 1 hour
+                  headers_with_underscores_action: REJECT_REQUEST
+                http2_protocol_options:
+                  max_concurrent_streams: 100
+                  initial_stream_window_size: 65536 # 64 KiB
+                  initial_connection_window_size: 1048576 # 1 MiB
+                stream_idle_timeout: 300s # 5 mins, must be disabled for long-lived and streaming requests
+                request_timeout: 300s # 5 mins, must be disabled for long-lived and streaming requests
+                access_log:
+                  - name: envoy.access_loggers.stdout
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog
+                http_filters:
+                  - name: envoy.filters.http.router
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+                route_config:
+                  virtual_hosts:
+                    - name: default
+                      domains: ["*"]
+                      routes:
+                        - match:
+                            prefix: /jokes
+                          redirect:
+                            port_redirect: 8443
+                            https_redirect: true
+                        - match:
+                            prefix: /httpbin
+                          redirect:
+                            port_redirect: 8443
+                            https_redirect: true
+    - name: listener_https
+      address:
+        socket_address:
+          address: 0.0.0.0
+          port_value: 8443
+      listener_filters:
+        - name: "envoy.filters.listener.tls_inspector"
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.listener.tls_inspector.v3.TlsInspector
+      per_connection_buffer_limit_bytes: 32768 # 32 KiB
+      filter_chains:
+        - name: filter_chain_httpbin_https
+          filter_chain_match:
+            transport_protocol: tls
+            #server_names: httpbin.getavenue.co
+          transport_socket:
+            name: envoy.transport_sockets.tls
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext
+              common_tls_context:
+                tls_certificates:
+                  - certificate_chain:
+                      inline_string: |
+                        -----BEGIN CERTIFICATE-----
+                        MIIEWTCCAkGgAwIBAgIBADANBgkqhkiG9w0BAQsFADBNMQswCQYDVQQGEwJVUzEL
+                        MAkGA1UECAwCQ0ExEjAQBgNVBAoMCVRldHJhdGVpbzEdMBsGA1UEAwwUaHR0cGJp
+                        bi5nZXRhdmVudWUuY28wHhcNMjIxMjA0MDIwOTE5WhcNMjMxMjA0MDIwOTE5WjAu
+                        MQswCQYDVQQGEwJVUzELMAkGA1UECAwCQ0ExEjAQBgNVBAoMCVRldHJhdGVpbzCC
+                        ASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAJFPAK1d8qRAYg8ZwJGQ3TDl
+                        3X0WKfd6FiLYL1GPKMUMygvLpQPYSAUSb6e+5bhd3/EPU1ZRA1kcCQK/02Kdplb1
+                        q8Dv+8rbRmsDRepBysLgmUk1bhzSwi+gKg8DW3bGraLvi39hesjYko5niEXO4b1P
+                        gGXVsXDIuMweua6Cit4/A1Cgs6jRMrHGVT+3L5RItiV180Mq0+3iB5Ay3OY1F+NM
+                        wqU4sMdI5x/yhbdg9eJxgmj9xjNhCJwUAN5eWuWu/+A4GmklIYwUY6g4VVms3stf
+                        fT7/3OpWYRDyNFb5edN6gPrZsLaC1eHxlq2ylsBFD7GsAe9gCiAXd/VznkLCFNcC
+                        AwEAAaNjMGEwHwYDVR0RBBgwFoIUaHR0cGJpbi5nZXRhdmVudWUuY28wHQYDVR0O
+                        BBYEFK6Z46+ddImth20v4L3NKc6/9i+MMB8GA1UdIwQYMBaAFFxWxOevaAC2e8JB
+                        Ph5ccui5xF24MA0GCSqGSIb3DQEBCwUAA4ICAQCVpV3o+qhJF+C+GUGMwAatinQP
+                        yRhigmWs7YOzCdHY9IVVnRn74Z74IxbN+x5DZMOoW/j1y9zga/q4o2vmoIvj08Ma
+                        JzkpFCCLD/SjyzGAIHJWyfJD5d/B+smVxqiWkojLBvM2vXwvs8IiDbN+ZLtLS6z2
+                        VOblqzL9E3v4GBOmKgFfDbckTTlP3oO68s8gyC2prH99D5/6ESYWUVU9tLDYu8pp
+                        lYyQdJ6qmHQrMJdLZSBy1HW7QiXKGbk2wo/XDqhqfppQIj6gsb2IXUYPJROvWeJx
+                        iAOzB9+HHKGJcV+R3KBazC7Agyukifl7UskfaJvYEybOuklnC7fACcCRqbtsxUxi
+                        6LieWvUSSqTOuQbPRuc4NMjl4K5hZeFONH0KP0pe59cJpVqHDUC8xl937D+f++xc
+                        DhxJrQFdf8yxBJvhhkyuYxmt49phKuAun0EJNLEUARpJVEw6GcpkE9QPQjLuPnDw
+                        fc5ngvNX7AW7sNBBid3/JTU0DHuZlTk6mmvbAOKgGvqkLBRq/TcCd79ttxF08+yM
+                        0Sll2K+LZ/EvAs7twvzCKh6wnSNKvKOwqiYuv7jXSEbRTSA1XVhSSKUq2HGXIgAt
+                        TGIZEkWuYa/deWcE57xwZONsc94vCkBWeFYSWcMcYfqOa7dSGm85vQtfxOCQQU7O
+                        PlIsfhirMTQPynp85A==
+                        -----END CERTIFICATE-----
+
+                    private_key:
+                      inline_string: |
+                        -----BEGIN PRIVATE KEY-----
+                        MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCRTwCtXfKkQGIP
+                        GcCRkN0w5d19Fin3ehYi2C9RjyjFDMoLy6UD2EgFEm+nvuW4Xd/xD1NWUQNZHAkC
+                        v9NinaZW9avA7/vK20ZrA0XqQcrC4JlJNW4c0sIvoCoPA1t2xq2i74t/YXrI2JKO
+                        Z4hFzuG9T4Bl1bFwyLjMHrmugorePwNQoLOo0TKxxlU/ty+USLYldfNDKtPt4geQ
+                        MtzmNRfjTMKlOLDHSOcf8oW3YPXicYJo/cYzYQicFADeXlrlrv/gOBppJSGMFGOo
+                        OFVZrN7LX30+/9zqVmEQ8jRW+XnTeoD62bC2gtXh8ZatspbARQ+xrAHvYAogF3f1
+                        c55CwhTXAgMBAAECggEARNpYic2wgd/4Fwuu0csA5ICnOPRdomR5RL2HfnAFc4mh
+                        24D9ihrb1Xts6OFt3LSuvnzykj4FBh5grqrSsTHedeonHl8YwoCwl1iPsnbGax0d
+                        xTDKImJDnWmZRE/k8R0nfcNgKFW6Zp0opM2uJtXm5VtcjeR6FeUmm6IbffNhdflS
+                        9keagzIbBmqnnKDjv1ZAZqLK2TFzwrr03PMayeTSI5uecw5GbzyxBzpz6A2M3/EH
+                        JAdDWd5asnJ4MXfJolIcvAGqzxVp3CYEgQqKSX5MNW5+KQEH1Grdmz9tGJM+jYR0
+                        9WUAwWFfDk+mrKDorrN9WkQ3n68drSPUZ7kn+tdQQQKBgQDFWetjym2MXEB18JHC
+                        VcXiSPJ3x9zpxxS24ku//x/zAV3voKcVvDUibb5R3W4vC0ae5oaoW27WU/eoreWe
+                        ZjMkf4fSiyiNixsHg50EWmvkV82NAk4joCOB5O4Cs3jIkNhq1sL0nE64/UFoKLkx
+                        e93TbU1ScWXWYVggpW0KjUXS0QKBgQC8fcjxJFcZ22dBREsY7PsWwo12I82eRmcH
+                        1rWadmkuHKm916rmylrX55PzukfPpiKBEjL+52F3HCmDPQ06tU0B7J0qRBuZg6NG
+                        FzGfA+YA1ZT5uLPkrDoke+welEgyf7G2bssnvtiFjtlTf5YUwyxspKS1XMg3szGe
+                        eddkePdHJwKBgQDChIKy9U9MzZDrrpa8iXZmN6hlz6U693K/YAVx1LFU/7/q9No7
+                        XiqxKKIyZqK309FjxaxsPNLehhzRMbXljq5SBzGEoIz0Fmwp19vn8oftpW2A0wjZ
+                        rHnTCiZemy8t4Tau98do+rfNNjJFy/3dfE2Em3NfE05hI8mNRABaKizsQQKBgGTZ
+                        xD7Jm9TY4Gk6WhfvC/VEiR3R0D1EG/JEvgv0GRiz+1n435b2ZB6q6C162NtQX5vB
+                        mglq0WpCZi+y5bYotRg3emvX3xCHLz/cPw9+rXx6ymfGnHHYeI92woImAm8KhZI/
+                        u3D7mqvzH3KejDV1q/pBKWNkTjgHJ6BMPqOiWWP3AoGABuL5QlezyJcIY+PPt/zW
+                        +lAWb13/w2qftvFRG3nV5pDlHfSJTZW+IklbpVsihstvLsa5SRK0c+jj2aWQ7in3
+                        QRdcS3iS2HuoJ8iCSaNOhjfGr+L8a1a33fCp9VPxtDQKVIiiZcxNJPqlwicFnl4e
+                        YXKzVa3H7vKUjYQv+zf9kOQ=
+                        -----END PRIVATE KEY-----
+
+                alpn_protocols: ["h2,http/1.1"]
+          filters:
+            - name: envoy.filters.network.http_connection_manager
+              typed_config:
+                "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                stat_prefix: ingress_http
+                use_remote_address: true
+                normalize_path: true
+                merge_slashes: true
+                path_with_escaped_slashes_action: UNESCAPE_AND_REDIRECT
+                common_http_protocol_options:
+                  idle_timeout: 3600s # 1 hour
+                  headers_with_underscores_action: REJECT_REQUEST
+                http2_protocol_options:
+                  max_concurrent_streams: 100
+                  initial_stream_window_size: 65536 # 64 KiB
+                  initial_connection_window_size: 1048576 # 1 MiB
+                stream_idle_timeout: 300s # 5 mins, must be disabled for long-lived and streaming requests
+                request_timeout: 300s # 5 mins, must be disabled for long-lived and streaming requests
+                access_log:
+                  - name: envoy.access_loggers.stdout
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog
+                http_filters:
+                  - name: envoy.filters.http.router
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+                route_config:
+                  virtual_hosts:
+                    - name: default
+                      domains: ["*"]
+                      routes:
+                        - match:
+                            prefix: /jokes
+                          route:
+                            prefix_rewrite: /
+                            cluster: upstream_jokes_service
+                            idle_timeout: 15s # must be disabled for long-lived and streaming requests
+                        - match:
+                            prefix: /httpbin
+                          route:
+                            prefix_rewrite: /
+                            cluster: upstream_httpbin_service
+                            idle_timeout: 15s # must be disabled for long-lived and streaming requests
+  clusters:
+    - name: upstream_httpbin_service
+      per_connection_buffer_limit_bytes: 32768 # 32 KiB
+      type: STATIC
+      load_assignment:
+        cluster_name: upstream_httpbin_service
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: 127.0.0.1
+                      port_value: 10003
+    - name: upstream_jokes_service
+      per_connection_buffer_limit_bytes: 32768 # 32 KiB
+      type: STATIC
+      load_assignment:
+        cluster_name: upstream_jokes_service
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: 127.0.0.1
+                      port_value: 10004
