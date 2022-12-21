@@ -43,6 +43,12 @@ func (w *NatsWatcher) Run(ctx context.Context) error {
 	configStream := "CONFIG"
 	stateStream := "STATE"
 
+	// First-time read.
+	err := w.update()
+	if err != nil {
+		return err
+	}
+
 	// Connect to NATS
 	nc, err := nats.Connect(w.c.NatsURL)
 	if err != nil {
@@ -96,7 +102,10 @@ func (w *NatsWatcher) Run(ctx context.Context) error {
 	go func() {
 		for {
 			if len(w.proxyConfig.GatewayConfigs) > 0 {
-				ps := &ProxyState{}
+				ps := &ProxyState{
+					ProxyVersion: fmt.Sprintf("%s (commit: %s)\n", w.c.Version, w.c.Commit),
+					EnvoyVersion: w.c.EnvoyVersion,
+				}
 				ps.GatewayStates = make(map[string]string)
 
 				for k, v := range w.proxyConfig.GatewayConfigs {

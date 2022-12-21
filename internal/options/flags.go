@@ -44,7 +44,7 @@ func NewFlags() *Flags {
 }
 
 // ToBootstrap returns boostrap object.
-func (f *Flags) ToBootstrap() (*config.Bootstrap, error) {
+func (f *Flags) ToBootstrap(version string, commit string) (*config.Bootstrap, error) {
 	host, portstring, err := net.SplitHostPort(f.XDSServerURL)
 	if err != nil {
 		return nil, err
@@ -66,5 +66,7 @@ func (f *Flags) ToBootstrap() (*config.Bootstrap, error) {
 		Output:           f.Output,
 		UseGoogleGRPC:    f.UseGoogleGRPC,
 		AvenueConnect:    f.AvenueConnect,
+		Version:          version,
+		Commit:           commit,
 	}, nil
 }

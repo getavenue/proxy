@@ -40,11 +40,11 @@ const (
 )
 
 // DownloadVersionedBinary returns the downloaded binary file path.
-func DownloadVersionedBinary(ctx context.Context, archive archives.Archive, destDir string) (string, error) {
+func DownloadVersionedBinary(ctx context.Context, archive archives.Archive, destDir string) (string, string, error) {
 	destinationDir := filepath.Join(destDir, archive.BinaryDir())
 	err := os.MkdirAll(destinationDir, 0o750)
 	if err != nil {
-		return "", fmt.Errorf("could not create directory %s: %v", destinationDir, err)
+		return "", "", fmt.Errorf("could not create directory %s: %v", destinationDir, err)
 	}
 
 	destinationPath := filepath.Join(destinationDir, archive.BinaryName())
@@ -52,41 +52,41 @@ func DownloadVersionedBinary(ctx context.Context, archive archives.Archive, dest
 		var downloadURL string
 		downloadURL, err = GetArchiveURL(archive)
 		if err != nil {
-			return "", err
+			return "", "", err
 		}
 		// TODO(dio): Streaming the bytes from remote file. We decided to use this for skipping copying
 		// the retry logic that has already implemented in github.com/bazelbuild/bazelisk/httputil.
 		data, _, err := httputil.ReadRemoteFile(downloadURL, "")
 		if err != nil {
-			return "", fmt.Errorf("failed to read remote file: %s: %w", downloadURL, err)
+			return "", "", fmt.Errorf("failed to read remote file: %s: %w", downloadURL, err)
 		}
 		br := bufio.NewReader(bytes.NewBuffer(data))
 		maybeXzHeader, err := br.Peek(xz.HeaderLen)
 		if err != nil {
-			return "", err
+			return "", "", err
 		}
 		// We currently can extract .tar.gz and tar.xz only.
 		if xz.ValidHeader(maybeXzHeader) {
 			var r *xz.Reader
 			r, err = xz.NewReader(br)
 			if err != nil {
-				return "", err
+				return "", "", err
 			}
 			err = extract.Tar(ctx, r, destDir, archive.Renamer())
 		} else {
 			err = extract.Gz(ctx, br, destDir, archive.Renamer())
 		}
 		if err != nil {
-			return "", err
+			return "", "", err
 		}
 		if _, err = os.Stat(destinationPath); err != nil {
-			return "", fmt.Errorf("failed to extract the remote file from: %s: %w", downloadURL, err)
+			return "", "", fmt.Errorf("failed to extract the remote file from: %s: %w", downloadURL, err)
 		}
 		if err = os.Chmod(destinationPath, 0o755); err != nil { //nolint:gosec
-			return "", fmt.Errorf("could not chmod file %s: %v", destinationPath, err)
+			return "", "", fmt.Errorf("could not chmod file %s: %v", destinationPath, err)
 		}
 	}
-	return destinationPath, nil
+	return destinationPath, archive.Version(), nil
 }
 
 // GetArchiveURL renders the archive URL pattern to return the actual archive URL.
@@ -112,7 +112,7 @@ func GetArchiveURL(archive archives.Archive) (string, error) {
 	return buf.String(), nil
 }
 
-func Download(ctx context.Context, versionUsed string) (string, error) {
+func Download(ctx context.Context, versionUsed string) (string, string, error) {
 	// The func-e home is defined by $FUNC_E_HOME or if not defined: ~/.func-e.
 	// The binary should be downloaded to $FUNC_E_HOME/versions/1.20.1/bin/envoy
 	funcEHome := os.Getenv(funcEHomeEnvKey)

@@ -46,7 +46,7 @@ func Run(ctx context.Context, c *config.Bootstrap) error {
 	var g run.Group
 	g.Add(run.SignalHandler(ctx, os.Interrupt, syscall.SIGINT, syscall.SIGTERM))
 
-	binaryPath, err := downloader.Download(ctx, "")
+	binaryPath, envoyVersion, err := downloader.Download(ctx, "")
 	if err != nil {
 		return err
 	}
@@ -104,6 +104,9 @@ func Run(ctx context.Context, c *config.Bootstrap) error {
 			ListenAddress: fmt.Sprintf(":%d", c.XDSServerPort),
 			NatsURL:       pc.NatsURL,
 			NodeID:        pc.NodeID,
+			Version:       c.Version,
+			Commit:        c.Commit,
+			EnvoyVersion:  envoyVersion,
 		}
 
 		xdsServer := xdsserver.New(xdsBootstrap)

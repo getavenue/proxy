@@ -11,4 +11,6 @@ type ProxyConfig struct {
 
 type ProxyState struct {
 	GatewayStates map[string]string `json:"gateway_states"`
+	ProxyVersion  string            `json:"proxy_version"`
+	EnvoyVersion  string            `json:"envoy_version"`
 }

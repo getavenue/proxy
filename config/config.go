@@ -53,4 +53,6 @@ type Bootstrap struct {
 	Output           string
 	UseGoogleGRPC    bool
 	AvenueConnect    string
+	Version          string
+	Commit           string
 }

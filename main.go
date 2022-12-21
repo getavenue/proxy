@@ -39,7 +39,7 @@ func main() {
 		return
 	}
 
-	b, err := flags.ToBootstrap()
+	b, err := flags.ToBootstrap(version, commit)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)

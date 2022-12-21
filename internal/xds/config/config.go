@@ -19,4 +19,7 @@ type Bootstrap struct {
 	Resources     string
 	NatsURL       string
 	NodeID        string
+	Version       string
+	Commit        string
+	EnvoyVersion  string
 }
