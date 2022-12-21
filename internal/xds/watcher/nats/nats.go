@@ -44,7 +44,7 @@ func (w *NatsWatcher) Run(ctx context.Context) error {
 	stateStream := "STATE"
 
 	// First-time read.
-	err := w.update()
+	err := w.update(w.c.NodeID)
 	if err != nil {
 		return err
 	}
@@ -82,8 +82,7 @@ func (w *NatsWatcher) Run(ctx context.Context) error {
 				lastConfig := &ProxyConfig{}
 				err = json.Unmarshal(m[0].Data, lastConfig)
 				if err != nil {
-					// print log but don't crash
-					log.Println(err)
+					continue
 				}
 				m[0].Ack()
 
@@ -93,7 +92,7 @@ func (w *NatsWatcher) Run(ctx context.Context) error {
 				}
 
 				// update proxy snapshot
-				_ = w.update()
+				_ = w.update(w.c.NodeID)
 			}
 		}
 	}()
@@ -135,9 +134,9 @@ func (w *NatsWatcher) Run(ctx context.Context) error {
 	}
 }
 
-func (w *NatsWatcher) update() error {
-	nodes := make(map[string][]*bootstrapv3.Bootstrap)
-	for k, v := range w.proxyConfig.GatewayConfigs {
+func (w *NatsWatcher) update(nodeID string) error {
+	resources := make([]*bootstrapv3.Bootstrap, 0)
+	for _, v := range w.proxyConfig.GatewayConfigs {
 		j, err := yaml.YAMLToJSON([]byte(v.EnvoyConfig))
 		if err != nil {
 			return err
@@ -148,32 +147,29 @@ func (w *NatsWatcher) update() error {
 		if err != nil {
 			return err
 		}
-		nodes[k] = append(nodes[k], &resource)
+		resources = append(resources, &resource)
 	}
 
-	for nodeID, resources := range nodes {
-		var merged bootstrapv3.Bootstrap_StaticResources
-		for _, r := range resources {
-			if r.StaticResources == nil {
-				continue
-			}
-			proto.Merge(&merged, r.StaticResources)
-		}
-
-		snap, err := cache.NewSnapshot(nodeID+"~"+ksuid.New().String(), map[resource.Type][]types.Resource{
-			resource.ClusterType:  clustersToResources(merged.Clusters),
-			resource.ListenerType: listenersToResources(merged.Listeners),
-		})
-		if err != nil {
-			log.Println("NewSnapshot", err)
+	var merged bootstrapv3.Bootstrap_StaticResources
+	for _, r := range resources {
+		if r.StaticResources == nil {
 			continue
 		}
-		err = w.updater.UpdateSnaphot(context.Background(), nodeID, snap)
-		if err != nil {
-			log.Println("UpdateSnaphot", err)
-			continue
-		}
+		proto.Merge(&merged, r.StaticResources)
 	}
+
+	snap, err := cache.NewSnapshot(nodeID+"~"+ksuid.New().String(), map[resource.Type][]types.Resource{
+		resource.ClusterType:  clustersToResources(merged.Clusters),
+		resource.ListenerType: listenersToResources(merged.Listeners),
+	})
+	if err != nil {
+		return err
+	}
+	err = w.updater.UpdateSnaphot(context.Background(), nodeID, snap)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 

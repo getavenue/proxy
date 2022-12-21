@@ -109,6 +109,8 @@ func Run(ctx context.Context, c *config.Bootstrap) error {
 			EnvoyVersion:  envoyVersion,
 		}
 
+		c.NodeID = pc.NodeID
+
 		xdsServer := xdsserver.New(xdsBootstrap)
 		{
 			runCtx, cancel := context.WithCancel(ctx)
