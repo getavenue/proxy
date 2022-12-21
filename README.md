@@ -1,5 +1,16 @@
 # proxy
 
+## Nats watcher
+
+For Avenue purpose, run proxy with nats watcher
+
+```
+./build/proxy_darwin_amd64/proxy --avenue-connect 
+eyJuYXRzX3VybCI6Im5hdHM6Ly9hdmVudWU6ZExoNWpEa2tlVHBMbUNHbzYxMXQub01NeGRaM0AxMjcuMC4wLjE6NDIyMiIsIm5vZGVfaWQiOiJub2RlX29uZSJ9 --admin-port 9000
+
+./build/proxy_darwin_amd64/proxy --xds-resources testdata/hello --admin-port 9000
+```
+
 ## Installation
 
 ```console

@@ -121,6 +121,7 @@ func (w *DirectoryWatcher) update() error {
 			}
 			proto.Merge(&merged, r.StaticResources)
 		}
+
 		snap, err := cache.NewSnapshot(nodeID+"~"+ksuid.New().String(), map[resource.Type][]types.Resource{
 			resource.ClusterType:  clustersToResources(merged.Clusters),
 			resource.ListenerType: listenersToResources(merged.Listeners),

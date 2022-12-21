@@ -1,20 +1,14 @@
 package nats
 
 type GatewayConfig struct {
-	GatewayName     string `json:"gateway_name"`
 	EnvoyConfigHash string `json:"envoy_config_hash"`
 	EnvoyConfig     string `json:"envoy_config"`
 }
 
 type ProxyConfig struct {
-	GatewayConfigs []GatewayConfig `json:"gateway_configs"`
-}
-
-type GatewayState struct {
-	GatewayName     string `json:"gateway_name"`
-	EnvoyConfigHash string `json:"envoy_config_hash"`
+	GatewayConfigs map[string]GatewayConfig `json:"gateway_configs"`
 }
 
 type ProxyState struct {
-	GatewayStates []GatewayState `json:"gateway_states"`
+	GatewayStates map[string]string `json:"gateway_states"`
 }

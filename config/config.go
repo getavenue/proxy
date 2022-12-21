@@ -52,5 +52,5 @@ type Bootstrap struct {
 	StatsPort        int
 	Output           string
 	UseGoogleGRPC    bool
-	NatsURL          string
+	AvenueConnect    string
 }

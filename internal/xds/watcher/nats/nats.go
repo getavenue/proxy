@@ -3,6 +3,7 @@ package nats
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"time"
 
@@ -26,13 +27,16 @@ func New(c *config.Bootstrap, updater xdsserver.SnaphotUpdater) *NatsWatcher {
 	return &NatsWatcher{
 		c:       c,
 		updater: updater,
+		proxyConfig: ProxyConfig{
+			GatewayConfigs: make(map[string]GatewayConfig),
+		},
 	}
 }
 
 type NatsWatcher struct {
-	c          *config.Bootstrap
-	updater    xdsserver.SnaphotUpdater
-	lastConfig ProxyConfig
+	c           *config.Bootstrap
+	updater     xdsserver.SnaphotUpdater
+	proxyConfig ProxyConfig
 }
 
 func (w *NatsWatcher) Run(ctx context.Context) error {
@@ -69,12 +73,20 @@ func (w *NatsWatcher) Run(ctx context.Context) error {
 		for {
 			m, _ := sub.Fetch(1)
 			if len(m) > 0 {
-				err = json.Unmarshal(m[0].Data, &w.lastConfig)
+				lastConfig := &ProxyConfig{}
+				err = json.Unmarshal(m[0].Data, lastConfig)
 				if err != nil {
 					// print log but don't crash
 					log.Println(err)
 				}
 				m[0].Ack()
+
+				// add or update cached gateway config
+				for k, v := range lastConfig.GatewayConfigs {
+					w.proxyConfig.GatewayConfigs[k] = v
+				}
+
+				// update proxy snapshot
 				_ = w.update()
 			}
 		}
@@ -83,16 +95,12 @@ func (w *NatsWatcher) Run(ctx context.Context) error {
 	// State loop
 	go func() {
 		for {
-			if len(w.lastConfig.GatewayConfigs) > 0 {
+			if len(w.proxyConfig.GatewayConfigs) > 0 {
 				ps := &ProxyState{}
-				ps.GatewayStates = make([]GatewayState, 0)
+				ps.GatewayStates = make(map[string]string)
 
-				for _, v := range w.lastConfig.GatewayConfigs {
-					gws := GatewayState{
-						GatewayName:     v.GatewayName,
-						EnvoyConfigHash: v.EnvoyConfigHash,
-					}
-					ps.GatewayStates = append(ps.GatewayStates, gws)
+				for k, v := range w.proxyConfig.GatewayConfigs {
+					ps.GatewayStates[k] = v.EnvoyConfigHash
 				}
 
 				byteData, err := json.Marshal(ps)
@@ -110,13 +118,17 @@ func (w *NatsWatcher) Run(ctx context.Context) error {
 		}
 	}()
 
-	return nil
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		}
+	}
 }
 
 func (w *NatsWatcher) update() error {
 	nodes := make(map[string][]*bootstrapv3.Bootstrap)
-
-	for _, v := range w.lastConfig.GatewayConfigs {
+	for k, v := range w.proxyConfig.GatewayConfigs {
 		j, err := yaml.YAMLToJSON([]byte(v.EnvoyConfig))
 		if err != nil {
 			return err
@@ -127,7 +139,7 @@ func (w *NatsWatcher) update() error {
 		if err != nil {
 			return err
 		}
-		nodes[v.GatewayName] = append(nodes[v.GatewayName], &resource)
+		nodes[k] = append(nodes[k], &resource)
 	}
 
 	for nodeID, resources := range nodes {
@@ -138,15 +150,18 @@ func (w *NatsWatcher) update() error {
 			}
 			proto.Merge(&merged, r.StaticResources)
 		}
+
 		snap, err := cache.NewSnapshot(nodeID+"~"+ksuid.New().String(), map[resource.Type][]types.Resource{
 			resource.ClusterType:  clustersToResources(merged.Clusters),
 			resource.ListenerType: listenersToResources(merged.Listeners),
 		})
 		if err != nil {
+			log.Println("NewSnapshot", err)
 			continue
 		}
 		err = w.updater.UpdateSnaphot(context.Background(), nodeID, snap)
 		if err != nil {
+			log.Println("UpdateSnaphot", err)
 			continue
 		}
 	}

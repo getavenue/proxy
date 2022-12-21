@@ -16,6 +16,8 @@ package proxy
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -34,6 +36,11 @@ import (
 	"github.com/dio/proxy/runner"
 )
 
+type ProxyConnectConfig struct {
+	NatsURL string `json:"nats_url"`
+	NodeID  string `json:"node_id"`
+}
+
 // Run runs the main handler.
 func Run(ctx context.Context, c *config.Bootstrap) error {
 	var g run.Group
@@ -44,8 +51,8 @@ func Run(ctx context.Context, c *config.Bootstrap) error {
 		return err
 	}
 
-	if c.XDSResources != "" && c.NatsURL != "" {
-		return errors.New("Cannot have both directory and nats watcher")
+	if c.XDSResources != "" && c.AvenueConnect != "" {
+		return errors.New("Cannot have both directory and avenue nats watcher")
 	}
 
 	// User asks to watch a directory, activate the embedded xDS server.
@@ -54,7 +61,6 @@ func Run(ctx context.Context, c *config.Bootstrap) error {
 		xdsBootstrap := &xdsconfig.Bootstrap{
 			Resources:     c.XDSResources,
 			ListenAddress: fmt.Sprintf(":%d", c.XDSServerPort),
-			NatsURL:       c.NatsURL,
 			NodeID:        c.NodeID,
 		}
 
@@ -79,13 +85,25 @@ func Run(ctx context.Context, c *config.Bootstrap) error {
 		}
 	}
 
-	// User asks to watch a nats stream
-	if c.XDSResources != "" {
+	// User asks to watch a avenue nats stream
+	if c.AvenueConnect != "" {
+		// Decode avenueConnect config
+		connectConfig, e := base64.StdEncoding.DecodeString(c.AvenueConnect)
+		if e != nil {
+			return err
+		}
+
+		var pc ProxyConnectConfig
+		err = json.Unmarshal(connectConfig, &pc)
+		if e != nil {
+			return err
+		}
+
 		xdsBootstrap := &xdsconfig.Bootstrap{
 			Resources:     c.XDSResources,
 			ListenAddress: fmt.Sprintf(":%d", c.XDSServerPort),
-			NatsURL:       c.NatsURL,
-			NodeID:        c.NodeID,
+			NatsURL:       pc.NatsURL,
+			NodeID:        pc.NodeID,
 		}
 
 		xdsServer := xdsserver.New(xdsBootstrap)
