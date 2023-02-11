@@ -1,13 +1,14 @@
 # proxy
 
-## Nats watcher
+## Avenue connect
 
-For Avenue purpose, run proxy with nats watcher
-
+When using Avenue, run proxy with `--avenue-connect` param
 ```
-./build/proxy_darwin_amd64/proxy --avenue-connect 
-eyJuYXRzX3VybCI6Im5hdHM6Ly9hdmVudWU6ZExoNWpEa2tlVHBMbUNHbzYxMXQub01NeGRaM0AxMjcuMC4wLjE6NDIyMiIsIm5vZGVfaWQiOiJub2RlX2RlbW8ifQ== --admin-port 9000
+./build/proxy_darwin_amd64/proxy --avenue-connect eyJuYXRzX3VybCI6Im5hdHM6Ly9wcm94eTozb1pSckxaQ2lod2pCSlBiMHZCbC43RzlDUk04QDEyNy4wLjAuMTo0MjIyIiwibm9kZV9pZCI6Im5vZGVfZGVtbyJ9 --admin-port 9000
+```
 
+Following run proxy using directory watcher
+```
 ./build/proxy_darwin_amd64/proxy --xds-resources testdata/hello --admin-port 9000
 ```
 
