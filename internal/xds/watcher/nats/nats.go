@@ -102,7 +102,7 @@ func (w *NatsWatcher) Run(ctx context.Context) error {
 		for {
 			if len(w.proxyConfig.GatewayConfigs) > 0 {
 				ps := &ProxyState{
-					ProxyVersion: fmt.Sprintf("%s (commit: %s)\n", w.c.Version, w.c.Commit),
+					ProxyVersion: fmt.Sprintf("%s (commit: %s)", w.c.Version, w.c.Commit),
 					EnvoyVersion: w.c.EnvoyVersion,
 				}
 				ps.GatewayStates = make(map[string]string)
