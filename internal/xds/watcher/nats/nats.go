@@ -42,6 +42,7 @@ type NatsWatcher struct {
 func (w *NatsWatcher) Run(ctx context.Context) error {
 	configStream := "CONFIG"
 	stateStream := "STATE"
+	configFile := "proxy.config"
 
 	// First-time read.
 	err := w.update(w.c.NodeID)
@@ -74,6 +75,11 @@ func (w *NatsWatcher) Run(ctx context.Context) error {
 		return err
 	}
 
+	// restore config from file
+	restoreGob(".", configFile, &w.proxyConfig)
+	// update proxy snapshot
+	_ = w.update(w.c.NodeID)
+
 	// Config loop
 	go func() {
 		for {
@@ -91,9 +97,13 @@ func (w *NatsWatcher) Run(ctx context.Context) error {
 					w.proxyConfig.GatewayConfigs[k] = v
 				}
 
+				// dump config to file
+				dumpGob(".", configFile, w.proxyConfig)
+
 				// update proxy snapshot
 				_ = w.update(w.c.NodeID)
 			}
+
 		}
 	}()
 
