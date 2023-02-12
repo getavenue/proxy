@@ -9,8 +9,13 @@ type ProxyConfig struct {
 	GatewayConfigs map[string]GatewayConfig `json:"gateway_configs"`
 }
 
+type GatewayState struct {
+	EnvoyConfigHash string `json:"envoy_config_hash"`
+	EnvoyPort       int    `json:"envoy_port"`
+}
 type ProxyState struct {
-	GatewayStates map[string]string `json:"gateway_states"`
-	ProxyVersion  string            `json:"proxy_version"`
-	EnvoyVersion  string            `json:"envoy_version"`
+	GatewayStates map[string]GatewayState `json:"gateway_states"`
+	ProxyVersion  string                  `json:"proxy_version"`
+	EnvoyVersion  string                  `json:"envoy_version"`
+	EnvoyPort     int                     `json:"envoy_port"`
 }
