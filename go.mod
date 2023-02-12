@@ -1,6 +1,6 @@
 module github.com/dio/proxy
 
-go 1.17
+go 1.19
 
 require (
 	github.com/alecthomas/kong v0.4.1
@@ -9,6 +9,7 @@ require (
 	github.com/envoyproxy/go-control-plane v0.10.2-0.20220304220146-52a61f1448c5
 	github.com/fsnotify/fsnotify v1.5.2-0.20220216014147-a83458b875bd
 	github.com/mitchellh/go-homedir v1.1.0
+	github.com/nats-io/nats.go v1.23.0
 	github.com/oklog/run v1.1.0
 	github.com/segmentio/ksuid v1.0.5-0.20220130044332-7e86c6a66267
 	github.com/stretchr/testify v1.7.0
@@ -26,15 +27,15 @@ require (
 	github.com/golang/protobuf v1.5.0 // indirect
 	github.com/h2non/filetype v1.1.3 // indirect
 	github.com/juju/errors v0.0.0-20220203013757-bd733f3c86b9 // indirect
-	github.com/nats-io/nats.go v1.21.0 // indirect
+	github.com/nats-io/nats-server/v2 v2.9.14 // indirect
 	github.com/nats-io/nkeys v0.3.0 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	golang.org/x/crypto v0.0.0-20210314154223-e6e6c4f2bb5b // indirect
-	golang.org/x/net v0.0.0-20210226172049-e18ecbb05110 // indirect
-	golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c // indirect
-	golang.org/x/text v0.3.3 // indirect
+	golang.org/x/crypto v0.5.0 // indirect
+	golang.org/x/net v0.5.0 // indirect
+	golang.org/x/sys v0.4.0 // indirect
+	golang.org/x/text v0.6.0 // indirect
 	google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect

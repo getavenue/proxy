@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
+	"strings"
 	"time"
 
 	bootstrapv3 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
@@ -31,6 +33,23 @@ func New(c *config.Bootstrap, updater xdsserver.SnaphotUpdater) *NatsWatcher {
 			GatewayConfigs: make(map[string]GatewayConfig),
 		},
 	}
+}
+
+// getFreePort asks the kernel for a free open port that is ready to use.
+func getFreePort() (int, error) {
+	addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
+	if err != nil {
+		return 0, err
+	}
+
+	l, err := net.ListenTCP("tcp", addr)
+	if err != nil {
+		return 0, err
+	}
+	defer func() {
+		_ = l.Close()
+	}()
+	return l.Addr().(*net.TCPAddr).Port, nil
 }
 
 type NatsWatcher struct {
@@ -94,6 +113,16 @@ func (w *NatsWatcher) Run(ctx context.Context) error {
 
 				// add or update cached gateway config
 				for k, v := range lastConfig.GatewayConfigs {
+					// set port for gateway
+					port, err := getFreePort()
+					if err != nil {
+						log.Println("fail to get port for gateway", k, err)
+						continue
+					}
+
+					v.EnvoyPort = port
+					v.EnvoyConfig = strings.Replace(v.EnvoyConfig, "SET_PORT", fmt.Sprintf("%d", port), 1)
+
 					w.proxyConfig.GatewayConfigs[k] = v
 				}
 
@@ -115,10 +144,14 @@ func (w *NatsWatcher) Run(ctx context.Context) error {
 					ProxyVersion: fmt.Sprintf("%s (commit: %s)", w.c.Version, w.c.Commit),
 					EnvoyVersion: w.c.EnvoyVersion,
 				}
-				ps.GatewayStates = make(map[string]string)
+				ps.GatewayStates = make(map[string]GatewayState)
 
 				for k, v := range w.proxyConfig.GatewayConfigs {
-					ps.GatewayStates[k] = v.EnvoyConfigHash
+					gwState := GatewayState{
+						EnvoyPort:       v.EnvoyPort,
+						EnvoyConfigHash: v.EnvoyConfigHash,
+					}
+					ps.GatewayStates[k] = gwState
 				}
 
 				byteData, err := json.Marshal(ps)
