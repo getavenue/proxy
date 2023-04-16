@@ -2,12 +2,12 @@
 
 ## Avenue connect
 
-When using Avenue, run proxy with `--avenue-connect` param
+When using Avenue, run proxy with `--avenue-connect` param, or it will fail
 ```
-./build/proxy_darwin_amd64/proxy --avenue-connect eyJuYXRzX3VybCI6Im5hdHM6Ly9wcm94eTozb1pSckxaQ2lod2pCSlBiMHZCbC43RzlDUk04QDEyNy4wLjAuMTo0MjIyIiwibm9kZV9pZCI6Im5vZGVfZGVtbyJ9 --admin-port 9000
+./build/proxy_darwin_amd64/proxy --avenue-connect <avenue-connect-params> --admin-port 9000
 ```
 
-Following run proxy using directory watcher
+Following run proxy using directory watcher. This is not supported now.
 ```
 ./build/proxy_darwin_amd64/proxy --xds-resources testdata/hello --admin-port 9000
 ```

@@ -42,7 +42,7 @@ static_resources:
                             - key: x-auth-domain
                               value: one
                             - key: x-auth-method
-                              value: key-auth
+                              value: key_auth
                         authorization_response:
                           allowed_upstream_headers:
                             patterns:

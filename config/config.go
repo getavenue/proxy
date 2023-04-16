@@ -53,6 +53,7 @@ type Bootstrap struct {
 	Output           string
 	UseGoogleGRPC    bool
 	AvenueConnect    string
+	NginxConfig      bool
 	Version          string
 	Commit           string
 }

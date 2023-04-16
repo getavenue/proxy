@@ -36,9 +36,9 @@ current_binary      := $(current_binary_path)/$(name)$(goexe)
 current_server_binary_path := build/$(server_name)_$(goos)_$(goarch)
 current_server_binary      := $(current_server_binary_path)/$(server_name)$(goexe)
 
-linux_platforms       := linux_amd64 linux_arm64
-non_windows_platforms := darwin_amd64 darwin_arm64 $(linux_platforms)
-windows_platforms     := windows_amd64
+linux_platforms       := linux_amd64  #linux_arm64
+non_windows_platforms := darwin_amd64 #darwin_arm64 $(linux_platforms)
+# windows_platforms     := windows_amd64
 
 archives  := $(non_windows_platforms:%=dist/$(name)_$(VERSION)_%.tar.gz) $(windows_platforms:%=dist/$(name)_$(VERSION)_%.zip)
 checksums := dist/$(name)_$(VERSION)_checksums.txt
@@ -76,7 +76,7 @@ help: ## Describe how to use each target
 	@printf "$(ansi_$(name))$(f_white)\n"
 	@awk 'BEGIN {FS = ":.*?## "} /^[0-9a-zA-Z_-]+:.*?## / {sub("\\\\n",sprintf("\n%22c"," "), $$2);printf "$(ansi_format_dark)", $$1, $$2}' $(MAKEFILE_LIST)
 
-build: $(current_binary) $(current_server_binary) ## Build the proxy binary
+build: $(current_binary) # $(current_server_binary) ## Build the proxy binary
 
 # This generates the assets that attach to a release.
 dist: $(archives) $(server_archives) $(checksums) $(server_checksums) ## Generate release assets
@@ -116,7 +116,7 @@ format: go.mod $(all_nongen_go_sources) $(goimports) ## Format all Go sources
 	@$(go)fmt -s -w $(all_nongen_go_sources)
 # Workaround inconsistent goimports grouping with awk until golang/go#20818 or incu6us/goimports-reviser#50
 	@for f in $(all_nongen_go_sources); do \
-			awk '/^import \($$/,/^\)$$/{if($$0=="")next}{print}' $$f > /tmp/fmt; \
+			awk '/^import \($$/,/^\)$$/{if($$rbbuild0=="")next}{print}' $$f > /tmp/fmt; \
 	    mv /tmp/fmt $$f; \
 	done
 	@$(goimports) -local $$(sed -ne 's/^module //gp' go.mod) -w $(all_nongen_go_sources)
@@ -193,3 +193,10 @@ $(go_tools_dir)/%:
 	@printf "$(ansi_format_dark)" tools "installing $($(notdir $@)@v)..."
 	@GOBIN=$(go_tools_dir) go install $($(notdir $@)@v)
 	@printf "$(ansi_format_bright)" tools "ok"
+
+linux: ## linux
+	@printf "$(ansi_format_dark)" build "building build/proxy_linux_amd64/proxy"
+	@CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(go) build \
+		-ldflags "-s -w $(go_link)" \
+		-o build/proxy_linux_amd64/proxy .
+	@printf "$(ansi_format_bright)" build "ok"

@@ -32,6 +32,7 @@ type Flags struct {
 	StatsPort      int    `help:"Specify the exposed stats port"`
 	Output         string `help:"Specify the file to write the rendered config. Available values: stdout, stderr, or a valid file path"`
 	AvenueConnect  string `help:"Specify NATS URL to connect." default:""`
+	NginxConfig    bool   `help:"Enable nginx config generation." default:true`
 	Version        bool   `help:"Show application version."`
 }
 
@@ -66,6 +67,7 @@ func (f *Flags) ToBootstrap(version string, commit string) (*config.Bootstrap, e
 		Output:           f.Output,
 		UseGoogleGRPC:    f.UseGoogleGRPC,
 		AvenueConnect:    f.AvenueConnect,
+		NginxConfig:      f.NginxConfig,
 		Version:          version,
 		Commit:           commit,
 	}, nil

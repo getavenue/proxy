@@ -21,9 +21,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"syscall"
 
+	"github.com/nats-io/nats.go"
 	"github.com/oklog/run"
 
 	"github.com/dio/proxy/config"
@@ -31,8 +31,7 @@ import (
 	"github.com/dio/proxy/handler"
 	xdsconfig "github.com/dio/proxy/internal/xds/config"
 	xdsserver "github.com/dio/proxy/internal/xds/server"
-	"github.com/dio/proxy/internal/xds/watcher/directory"
-	"github.com/dio/proxy/internal/xds/watcher/nats"
+	_natsWatcher "github.com/dio/proxy/internal/xds/watcher/nats"
 	"github.com/dio/proxy/runner"
 )
 
@@ -51,85 +50,59 @@ func Run(ctx context.Context, c *config.Bootstrap) error {
 		return err
 	}
 
-	if c.XDSResources != "" && c.AvenueConnect != "" {
-		return errors.New("Cannot have both directory and avenue nats watcher")
+	// Avenue connect must be set
+	if c.AvenueConnect == "" {
+		return errors.New("Avenue connect must be set")
 	}
 
-	// User asks to watch a directory, activate the embedded xDS server.
-	if c.XDSResources != "" {
-		c.NodeID = filepath.Clean(c.XDSResources)
-		xdsBootstrap := &xdsconfig.Bootstrap{
-			Resources:     c.XDSResources,
-			ListenAddress: fmt.Sprintf(":%d", c.XDSServerPort),
-			NodeID:        c.NodeID,
-		}
-
-		xdsServer := xdsserver.New(xdsBootstrap)
-		{
-			runCtx, cancel := context.WithCancel(ctx)
-			g.Add(func() error {
-				return xdsServer.Run(runCtx)
-			}, func(err error) {
-				cancel()
-			})
-		}
-
-		w := directory.New(xdsBootstrap, xdsServer)
-		{
-			runCtx, cancel := context.WithCancel(ctx)
-			g.Add(func() error {
-				return w.Run(runCtx)
-			}, func(err error) {
-				cancel()
-			})
-		}
+	// Decode avenueConnect config
+	connectConfig, e := base64.StdEncoding.DecodeString(c.AvenueConnect)
+	if e != nil {
+		return err
 	}
 
-	// User asks to watch a avenue nats stream
-	if c.AvenueConnect != "" {
-		// Decode avenueConnect config
-		connectConfig, e := base64.StdEncoding.DecodeString(c.AvenueConnect)
-		if e != nil {
-			return err
-		}
+	var pc ProxyConnectConfig
+	err = json.Unmarshal(connectConfig, &pc)
+	if e != nil {
+		return err
+	}
 
-		var pc ProxyConnectConfig
-		err = json.Unmarshal(connectConfig, &pc)
-		if e != nil {
-			return err
-		}
+	xdsBootstrap := &xdsconfig.Bootstrap{
+		Resources:     c.XDSResources,
+		ListenAddress: fmt.Sprintf(":%d", c.XDSServerPort),
+		NatsURL:       pc.NatsURL,
+		NodeID:        pc.NodeID,
+		Version:       c.Version,
+		Commit:        c.Commit,
+		EnvoyVersion:  envoyVersion,
+		NginxConfig:   c.NginxConfig,
+	}
+	c.NodeID = pc.NodeID
 
-		xdsBootstrap := &xdsconfig.Bootstrap{
-			Resources:     c.XDSResources,
-			ListenAddress: fmt.Sprintf(":%d", c.XDSServerPort),
-			NatsURL:       pc.NatsURL,
-			NodeID:        pc.NodeID,
-			Version:       c.Version,
-			Commit:        c.Commit,
-			EnvoyVersion:  envoyVersion,
-		}
+	xdsServer := xdsserver.New(xdsBootstrap)
+	{
+		runCtx, cancel := context.WithCancel(ctx)
+		g.Add(func() error {
+			return xdsServer.Run(runCtx)
+		}, func(err error) {
+			cancel()
+		})
+	}
 
-		c.NodeID = pc.NodeID
+	natsWatcher := _natsWatcher.New(xdsBootstrap, xdsServer)
+	{
+		runCtx, cancel := context.WithCancel(ctx)
+		g.Add(func() error {
+			return natsWatcher.Run(runCtx)
+		}, func(err error) {
+			cancel()
+		})
+	}
 
-		xdsServer := xdsserver.New(xdsBootstrap)
-		{
-			runCtx, cancel := context.WithCancel(ctx)
-			g.Add(func() error {
-				return xdsServer.Run(runCtx)
-			}, func(err error) {
-				cancel()
-			})
-		}
-
-		natsWatcher := nats.New(xdsBootstrap, xdsServer)
-		{
-			runCtx, cancel := context.WithCancel(ctx)
-			g.Add(func() error {
-				return natsWatcher.Run(runCtx)
-			}, func(err error) {
-				cancel()
-			})
-		}
+	// Connect to NATS
+	nc, err := nats.Connect(pc.NatsURL)
+	if err != nil {
+		return err
 	}
 
 	// Handle config preparation, config watching, TLS establishment.
@@ -147,7 +120,7 @@ func Run(ctx context.Context, c *config.Bootstrap) error {
 	}
 
 	{
-		r := runner.New(binaryPath, false)
+		r := runner.New(binaryPath, false, nc, c.AdminPort, pc.NodeID)
 		runCtx, cancel := context.WithCancel(ctx)
 		g.Add(func() error {
 			return r.Run(runCtx, args.Values)

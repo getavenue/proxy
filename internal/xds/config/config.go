@@ -22,4 +22,5 @@ type Bootstrap struct {
 	Version       string
 	Commit        string
 	EnvoyVersion  string
+	NginxConfig   bool
 }

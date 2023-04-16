@@ -56,6 +56,7 @@ type NatsWatcher struct {
 	c           *config.Bootstrap
 	updater     xdsserver.SnaphotUpdater
 	proxyConfig ProxyConfig
+	streamLog   bool
 }
 
 func (w *NatsWatcher) Run(ctx context.Context) error {
@@ -94,6 +95,9 @@ func (w *NatsWatcher) Run(ctx context.Context) error {
 		return err
 	}
 
+	// Check if nginx is running
+	nginxIsRunning := checkNginxIsRunning()
+
 	// restore config from file
 	restoreGob(".", configFile, &w.proxyConfig)
 	// update proxy snapshot
@@ -122,8 +126,17 @@ func (w *NatsWatcher) Run(ctx context.Context) error {
 
 					v.EnvoyPort = port
 					v.EnvoyConfig = strings.Replace(v.EnvoyConfig, "SET_PORT", fmt.Sprintf("%d", port), 1)
+					v.NginxConfig = strings.Replace(v.NginxConfig, "SET_PORT", fmt.Sprintf("%d", port), 1)
 
 					w.proxyConfig.GatewayConfigs[k] = v
+
+					// update nginx config
+					if nginxIsRunning {
+						err = writeNginxConfig(k, v.NginxConfig)
+						if err != nil {
+							log.Println("fail to update nginx config", k, err)
+						}
+					}
 				}
 
 				// dump config to file
